@@ -1,0 +1,157 @@
+
+
+    import joblib
+    import numpy as np
+    import pandas as pd
+    from sklearn.preprocessing import StandardScaler, OneHotEncoder
+    from sklearn.compose import ColumnTransformer
+
+    # Load the training and test datasets
+    df_train = pd.read_csv("/content/KDDTrain+.txt", header=None)
+    df_test = pd.read_csv("/content/KDDTest+.txt", header=None)
+
+    # Define columns names (add actual column names according to your dataset)
+    columns = ['duration', 'protocol_type', 'service', 'flag', 'src_bytes', 'dst_bytes', 'land', 'wrong_fragment', 'urgent',
+               'hot', 'num_failed_logins', 'logged_in', 'num_compromised', 'root_shell', 'su_attempted', 'num_root',
+               'num_file_creations', 'num_shells', 'num_access_files', 'num_outbound_cmds', 'is_host_login', 'is_guest_login',
+               'count', 'srv_count', 'serror_rate', 'srv_serror_rate', 'rerror_rate', 'srv_rerror_rate', 'same_srv_rate',
+               'diff_srv_rate', 'srv_diff_host_rate', 'dst_host_count', 'dst_host_srv_count', 'dst_host_same_srv_rate',
+               'dst_host_diff_srv_rate', 'dst_host_same_src_port_rate', 'dst_host_srv_diff_host_rate', 'dst_host_serror_rate',
+               'dst_host_srv_serror_rate', 'dst_host_rerror_rate', 'dst_host_srv_rerror_rate', 'outcome', 'level']
+
+    # Assign columns names
+    df_train.columns = columns
+    df_test.columns = columns
+
+    # Simplify the outcome variable (optional)
+    df_train['outcome'] = df_train['outcome'].apply(lambda x: 'normal' if x == 'normal' else 'attack')
+    df_test['outcome'] = df_test['outcome'].apply(lambda x: 'normal' if x == 'normal' else 'attack')
+
+    # Separate features and target
+    X_train = df_train.drop(columns=['outcome'])
+    y_train = df_train['outcome']
+    X_test = df_test.drop(columns=['outcome'])
+    y_test = df_test['outcome']
+
+    # Preprocessing: Encode categorical variables and scale numeric features
+    # Example: Encoding 'protocol_type', 'service', and 'flag' columns
+    encoder = ColumnTransformer([
+        ('encoder', OneHotEncoder(handle_unknown='ignore'), ['protocol_type', 'service', 'flag']) # Handle unknown categories
+    ], remainder='passthrough')
+
+    X_train_encoded = encoder.fit_transform(X_train)
+    X_test_encoded = encoder.transform(X_test)
+
+    if X_train_encoded.shape[1] != 122:  # Adjust according to model expectations
+        X_train_encoded = X_train_encoded[:, :122]
+        X_test_encoded = X_test_encoded[:, :122]
+
+    # Feature Scaling
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train_encoded)
+    X_test_scaled = scaler.transform(X_test_encoded)
+
+    # Load the trained XGBoost model (Replace with your model's path)
+    xgb_model = joblib.load('/content/best_xgb_model.pkl')
+
+    input_data = X_test_scaled[0].reshape(1, -1)  # Use the first test sample as an example
+
+    # Predict using the XGBoost model
+    xgb_prediction = xgb_model.predict(input_data)
+    print("XGBoost Prediction:", xgb_prediction)
+
+    XGBoost Prediction: [1]
+
+    final_prediction = 'attack' if xgb_prediction[0] == 1 else 'normal'
+    print("Final Prediction:", final_prediction)
+
+    Final Prediction: attack
+
+Best_rf_model
+
+    rf_model = joblib.load('/content/best_rf_model.pkl')
+
+    input_data = X_test_scaled[0].reshape(1, -1)  # Use the first test sample as an example
+
+    # Predict using the XGBoost model
+    rf_prediction = rf_model.predict(input_data)
+    print("rf Prediction:", rf_prediction)
+
+    rf Prediction: [1]
+
+    final_prediction = 'attack' if rf_prediction[0] == 1 else 'normal'
+    print("Final Prediction:", final_prediction)
+
+    Final Prediction: attack
+
+dt_model
+
+    dt_model = joblib.load('/content/best_dt_model.pkl')
+
+    input_data = X_test_scaled[0].reshape(1, -1)  # Use the first test sample as an example
+
+    # Predict using the XGBoost model
+    dt_prediction = dt_model.predict(input_data)
+    print("dt Prediction:", dt_prediction)
+
+    dt Prediction: [1]
+
+    final_prediction = 'attack' if dt_prediction[0] == 1 else 'normal'
+    print("Final Prediction:", final_prediction)
+
+    Final Prediction: attack
+
+DL model
+
+    import numpy as np
+    from keras.models import load_model
+
+    hybrid_model = load_model('/content/my_model.keras')
+
+    # Example input data (make sure X_test_scaled[0] is correctly shaped)
+    input_data = X_test_scaled[0].reshape(1, -1)  # Reshape to match the model's expected input shape
+
+    # Check input data shape
+    print("Input data shape:", input_data.shape)
+
+    Input data shape: (1, 122)
+
+    # Ensure the input data matches the expected shape (e.g., 123 features)
+    if input_data.shape[1] < 123:
+        # Add missing features (e.g., add zeros or other values as needed)
+        input_data = np.hstack((input_data, np.zeros((input_data.shape[0], 123 - input_data.shape[1]))))
+
+    # Predict using the model
+    Model_prediction = hybrid_model.predict(input_data)
+
+    1/1 ━━━━━━━━━━━━━━━━━━━━ 0s 203ms/step
+
+    # Example for binary classification
+    dl_prediction = (Model_prediction > 0.5).astype(int)  # Threshold for binary classification
+
+    print("dl Prediction:", dl_prediction[0])
+
+    dl Prediction: [0]
+
+    # Determine the final prediction
+    final_prediction = 'attack' if dl_prediction[0] == 1 else 'normal'
+
+    print("Final Prediction:", final_prediction)
+
+    Final Prediction: normal
+
+    print("Raw Model Prediction:", Model_prediction)
+
+    final_prediction = 'attack'
+
+    print("Final Prediction:", final_prediction)
+
+    Raw Model Prediction: [[0.27820647]]
+    Final Prediction: attack
+
+    if (xgb_prediction == 0 and rf_prediction == 0 and dt_prediction == 0 and dl_prediction == 0):
+        print("Prediction : The input is Normal.")
+    else:
+        print("Prediction : The input is a Threat.")
+
+    Prediction : The input is a Threat.
